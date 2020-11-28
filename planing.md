@@ -154,4 +154,4 @@ predict
 
 1. Werling_planning.py/calc_frenet_paths
 
-2. 
+2. predict.py/check_collision
