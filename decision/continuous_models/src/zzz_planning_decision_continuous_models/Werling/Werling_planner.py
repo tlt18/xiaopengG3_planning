@@ -68,14 +68,11 @@ class Werling(object):
         self.csp = None
         self.dist_to_end = [0,0,0,0,0]
         self.target_line = target_line
-
         self.rivz_element = rviz_display()
     
     def clear_buff(self, dynamic_map):
-
         if self.csp is None:
             return
-
         self.last_trajectory_array = np.c_[0, 0]
         self.last_trajectory = Frenet_path()
         self.last_trajectory_array_rule = np.c_[0, 0]

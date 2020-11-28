@@ -1,12 +1,10 @@
-# zzz代码解读
+# zzz代码解读planning/decision
 
-## planning/decision
+## continuous_models
 
-### continuous_models
+### nodes
 
-#### nodes
-
-##### decision_node
+decision_node
 
 头文件
 
@@ -41,7 +39,7 @@ self._dynamic_map_subscriber = rospy.Subscriber(params.dynamic_map_topic, MapSta
 
 ```python
 def loop(self):
-publish_msg = self._decision_instance.update_trajectory()
+    publish_msg = self._decision_instance.update_trajectory()
 ```
 
 其中MainDecision在zzz_planning_decision_continuous_models的main.py中，
@@ -50,12 +48,17 @@ Werling()在zzz_planning_decision_continuous_models/Werling/Werling_planner.py�
 
 
 
-##### main.py
+>接收receive_dynamic_map和发送DecisionTrajectory的时序问题
 
-receive_dynamic_map接收dynamic_map，topic来自于params.dynamic_map_topic
+
+
+### main.py
+
+receive_dynamic_map接收dynamic_map，topic来自于params.dynamic_map_topic，进入之后只是更新self._dynamic_map_buffer。
 
 ```python
 def receive_dynamic_map(self, dynamic_map):
+    self._dynamic_map_buffer = dynamic_map
 ```
 
 update_trajectory调用self.\_trajectory_planner.trajectory_update，self._trajectory_planner实际上就是Werling()，还是看Werling()。
@@ -69,7 +72,7 @@ def update_trajectory(self, close_to_junction=40):
         if dynamic_map.model == dynamic_map.MODEL_MULTILANE_MAP and           dynamic_map.mmap.distance_to_junction > close_to_junction:
             self._trajectory_planner.clear_buff(dynamic_map)
             return None
-        # 多车道模型，建立frenet_path(这是什么？)
+        # 多车道模型，建立frenet_path，也不进入主体部分
         elif dynamic_map.model == dynamic_map.MODEL_MULTILANE_MAP:
             msg = self._trajectory_planner.build_frenet_path(dynamic_map)
             return None
@@ -80,7 +83,9 @@ def update_trajectory(self, close_to_junction=40):
 
 
 
-相关博客
+### Werling
+
+#### 相关博客
 
 [Frenet坐标系局部路径规划器](https://blog.csdn.net/u010918541/article/details/105054491/)
 
@@ -88,13 +93,35 @@ def update_trajectory(self, close_to_junction=40):
 
 [基于Frenet优化轨迹的无人车动作规划方法](https://blog.csdn.net/adamshan/article/details/80779615)
 
-
-
-##### Werling_planner.py
+#### Werling_planner.py
 
 传入的是"/zzz/cognition/local_dynamic_map/map_with_ref"的MapState。
 
-PythonRobotics
+##### class Werling():
+
+包含
+
+\__init__：初始化相关变量，没有进行实质操作。
+
+clear_buff：csp非0的情况下清除规划的路径。
+
+build_frenet_path
+
+trajectory_update
+
+initialize
+
+ref_tail_speed
+
+calculate_start_state
+
+frenet_optimal_planning
+
+generate_target_course
+
+calc_frenet_paths
+
+calc_global_paths
 
 
 
@@ -119,6 +146,8 @@ def build_frenet_path(self, dynamic_map,clean_current_csp = False):
        Frenetrefy = self.ref_path[:,1]
        tx, ty, tyaw, tc, self.csp = self.generate_target_course(Frenetrefx,Frenetrefy)
 ```
+
+外界调用trajectory_update更新参考路径。
 
 trajectory_update()
 
