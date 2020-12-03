@@ -61,6 +61,7 @@ class predict():
 
 
             # 使用2-范数的情况
+            # t0 = rospy.get_rostime().to_sec()
             # for obsp in self.obs_paths:
             #     len_predict_t = min(len(fp.t), len(obsp.t))
             #     predict_step = 2
@@ -68,12 +69,19 @@ class predict():
             #     for t in range(start_predict, len_predict_t, predict_step):
             #         d = (obsp.x[t] - fp_front.x[t])**2 + (obsp.y[t] - fp_front.y[t])**2
             #         if d <= self.check_radius**2: 
+            #             t1 = rospy.get_rostime().to_sec()
+            #             time_consume =t1-t0
+            #             rospy.logdebug("check_collision failed in %d rounds : check time consume %.6f",t,time_consume)
             #             return False
             #         d = (obsp.x[t] - fp_back.x[t])**2 + (obsp.y[t] - fp_back.y[t])**2
             #         if d <= self.check_radius**2: 
+            #             t1 = rospy.get_rostime().to_sec()
+            #             time_consume =t1-t0
+            #             rospy.logdebug("check_collision failed in %d rounds : check time consume %.6f",t,time_consume)
             #             return False
 
             # 使用1-范数的情况。可能需要把self.check_radius替换成self.check_radius/1.414
+            t0 = rospy.get_rostime().to_sec()
             for obsp in self.obs_paths:
                 len_predict_t = min(len(fp.t), len(obsp.t))
                 predict_step = 2
@@ -81,14 +89,23 @@ class predict():
                 for t in range(start_predict, len_predict_t, predict_step):
                     d = abs(obsp.x[t] - fp_front.x[t]) + abs(obsp.y[t] - fp_front.y[t])
                     if d <= self.check_radius: 
+                        t1 = rospy.get_rostime().to_sec()
+                        time_consume =t1-t0
+                        rospy.logdebug("check_collision failed in %d rounds : check time consume %.6f",t,time_consume)
                         return False
                     d = abs(obsp.x[t] - fp_back.x[t]) + abs(obsp.y[t] - fp_back.y[t])
                     if d <= self.check_radius: 
+                        t1 = rospy.get_rostime().to_sec()
+                        time_consume =t1-t0
+                        rospy.logdebug("check_collision failed in %d rounds : check time consume %.6f",t,time_consume)
                         return False
 
         except:
             pass
-
+        
+        t1 = rospy.get_rostime().to_sec()
+        time_consume =t1-t0
+        rospy.logdebug("check_collision successed : check time consume %.6f",t,time_consume)
         # self.rviz_collision_checking_circle = self.rivz_element.draw_circles(fp_front, fp_back, self.check_radius)
         return True
 
