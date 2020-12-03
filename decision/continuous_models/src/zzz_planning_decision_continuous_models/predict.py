@@ -59,17 +59,33 @@ class predict():
             fp_back.x = (np.array(fp.x)-np.cos(np.array(fp.yaw))*self.move_gap).tolist()
             fp_back.y = (np.array(fp.y)-np.sin(np.array(fp.yaw))*self.move_gap).tolist()
 
+
+            # 使用2-范数的情况
+            # for obsp in self.obs_paths:
+            #     len_predict_t = min(len(fp.t), len(obsp.t))
+            #     predict_step = 2
+            #     start_predict = 2
+            #     for t in range(start_predict, len_predict_t, predict_step):
+            #         d = (obsp.x[t] - fp_front.x[t])**2 + (obsp.y[t] - fp_front.y[t])**2
+            #         if d <= self.check_radius**2: 
+            #             return False
+            #         d = (obsp.x[t] - fp_back.x[t])**2 + (obsp.y[t] - fp_back.y[t])**2
+            #         if d <= self.check_radius**2: 
+            #             return False
+
+            # 使用1-范数的情况。可能需要把self.check_radius替换成self.check_radius/1.414
             for obsp in self.obs_paths:
                 len_predict_t = min(len(fp.t), len(obsp.t))
                 predict_step = 2
                 start_predict = 2
                 for t in range(start_predict, len_predict_t, predict_step):
-                    d = (obsp.x[t] - fp_front.x[t])**2 + (obsp.y[t] - fp_front.y[t])**2
-                    if d <= self.check_radius**2: 
+                    d = abs(obsp.x[t] - fp_front.x[t]) + abs(obsp.y[t] - fp_front.y[t])
+                    if d <= self.check_radius: 
                         return False
-                    d = (obsp.x[t] - fp_back.x[t])**2 + (obsp.y[t] - fp_back.y[t])**2
-                    if d <= self.check_radius**2: 
+                    d = abs(obsp.x[t] - fp_back.x[t]) + abs(obsp.y[t] - fp_back.y[t])
+                    if d <= self.check_radius: 
                         return False
+
         except:
             pass
 
