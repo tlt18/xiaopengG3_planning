@@ -101,35 +101,108 @@ def update_trajectory(self, close_to_junction=40):
 
 包含
 
-\__init__：初始化相关变量，没有进行实质操作。
+1. \__init__
 
-clear_buff：csp非0的情况下清除规划的路径。
+   初始化相关变量，没有进行实质操作。
 
-build_frenet_path
+2. clear_buff：
 
-trajectory_update
+   csp非0的情况下清除规划的路径.
 
-initialize
+   在内部不调用。
 
-ref_tail_speed
+3. build_frenet_path：
 
-calculate_start_state
+   通过中心路径生成csp变换。
 
-frenet_optimal_planning
+   csp是空的时候，读入地图中的中心路径，转换成序列，插值，生成一个csp变换。
 
-generate_target_course
+   在trajectory_update里面csp为空时调用被调用。
 
-calc_frenet_paths
+4. trajectory_update：
 
-calc_global_paths
+   调用initialize初始化。
+
+   调用calculate_start_state计算起始状态：s位置，d位置，d速度，d加速度。
+
+   调用frenet_optimal_planning，输入坐标变换，当前速度，轨迹初始状态。
+
+   轨迹不空：
+
+   - 提取xy赋给last_trajectory_array_rule
+   - 提取本身赋给last_trajectory_rule，这个是为下一次的否则提供参考
+   - 期望速度设置为s上的速度。
+
+   否则如果上一次的last_trajectory_rule大于5，速度大于1：
+
+   - trajectory_array为上一次的轨迹xy
+   - generated_trajectory为上一次轨迹
+   - 期望速度为0
+
+   否则：
+
+   - trajectory_array采用参考路径
+   - 期望速度采用0
+
+   轨迹(xy)和期望速度插值，存到msg中，返回msg。
+
+   外部主要调用的函数。
+
+5. initialize
+
+   当前车位置到中心参考路径末端的距离。
+
+   csp为空时调用build_frenet_path生成。
+
+   调用predict，传入地图、障碍、自车信息，返回障碍物信息储存在self.obs_prediction中。
+
+6. ref_tail_speed
+
+7. calculate_start_state
+
+   如果上一次last_trajectory_array_rule的len大于5，start_state的纵向位置、速度、加速度取自和当前位置最近的上次规划序列的点。
+
+   否则，调用get_frenet_state(dynamic_map.ego_state, self.ref_path, self.ref_path_tangets)生成start_state。
+
+   返回start_state。
+
+   这里分类的目的是为了用多帧信息，生成的轨迹也更加光滑。
+
+8. frenet_optimal_planning
+
+   调用calc_frenet_paths，输入当前速度和轨迹起始位置，返回一系列轨迹。
+
+   调用calc_global_paths，输入一系列frenet坐标下的轨迹，返回全局坐标下的轨迹。
+
+   调用check_paths，输入全局坐标下的轨迹，输出速度、加速度、曲率有没有越界的轨迹。
+
+   对剩下的轨迹代价值进行排序，用obs_prediction进行碰撞检测，返回第一个满足碰撞检测的轨迹。
+
+   在trajectory_update中调用。
+
+9. generate_target_course：读入插值后的路径中心点，生成csp变换，在build_frenet_path中调用。
+
+10. calc_frenet_paths
+
+    三重循环：
+
+    - 目标处横向距离
+    - 考虑时间长度，时间间隔是给定的，横向目标只有横向距离
+    - 纵向的最终速度
+
+    特别注意两个方向解方程的约束。
+
+    从而生成一系列的轨迹(带有sd方向位置速度加速度时间)。
+
+    在frenet_optimal_planning中调用。
+
+> 第二重循环的目的是什么？为什么要调整预测总时长？
+
+11. calc_global_paths
+
+    把frenet坐标转换为世界坐标。
 
 
-
-clear_buff()重新初始化
-
-```python
-def clear_buff(self, dynamic_map):
-```
 
 build_frenet_path()调用generate_target_course生成参考线，generate_target_course用的是二维立方样条插值。
 
@@ -182,5 +255,13 @@ predict
 需要改的部分：
 
 1. Werling_planning.py/calc_frenet_paths
-
 2. predict.py/check_collision
+
+
+
+
+
+减小延时方面，上次新宇学长说check_collision的平方开根号可能算得比较慢，我们这里能把2-范数改成1-范数考虑吗？
+
+延时补偿方面，我还没有很明确的想法。感觉系统每次延时不一样，可能每次采样生成道路的时间差不多，但是每次check_collision的执行次数可能有区别。如果我们假设每次决策的延时是一样的比如是$\Delta t$，那我能不能在物体预测和自车位置上都用运动学模型向前走$\Delta t$再进行决策？即便我们每次决策延时不一样，那我们通过记录时间戳也好，计算check_collision的次数也好，把这个延时一起交给决策有意义吗？
+

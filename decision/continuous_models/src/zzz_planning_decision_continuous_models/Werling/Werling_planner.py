@@ -89,14 +89,14 @@ class Werling(object):
         if self.csp is None or clean_current_csp:
             self.reference_path = dynamic_map.jmap.reference_path.map_lane.central_path_points
             ref_path_ori = convert_path_to_ndarray(self.reference_path)
-            self.ref_path = dense_polyline2d(ref_path_ori, 2)
+            self.ref_path = dense_polyline2d(ref_path_ori, 2) # 线性插值？
             self.ref_path_tangets = np.zeros(len(self.ref_path))
             self.ref_path_rviz = convert_ndarray_to_pathmsg(self.ref_path)
 
             Frenetrefx = self.ref_path[:,0]
             Frenetrefy = self.ref_path[:,1]
             tx, ty, tyaw, tc, self.csp = self.generate_target_course(Frenetrefx,Frenetrefy)
-    
+
     def trajectory_update(self, dynamic_map):
         if self.initialize(dynamic_map):
             
@@ -106,10 +106,10 @@ class Werling(object):
             if generated_trajectory is not None:
                 k = min(len(generated_trajectory.s_d),5)-1
                 desired_speed = generated_trajectory.s_d
-                trajectory_array_ori = np.c_[generated_trajectory.x, generated_trajectory.y]
-                trajectory_array = trajectory_array_ori#dense_polyline2d(trajectory_array_ori,1)
-                self.last_trajectory_array_rule = trajectory_array
-                self.last_trajectory_rule = generated_trajectory              
+                trajectory_array_ori = np.c_[generated_trajectory.x, generated_trajectory.y] #按行连接两个矩阵，就是把两矩阵左右相加，要求行数相等。
+                trajectory_array = trajectory_array_ori # dense_polyline2d(trajectory_array_ori,1)，本来是要插值的
+                self.last_trajectory_array_rule = trajectory_array # 只需要世界坐标的xy信息
+                self.last_trajectory_rule = generated_trajectory # 包含了轨迹的完整信息               
                 rospy.logdebug("Planning (continuous): ----> Werling Successful Planning")
             
             elif len(self.last_trajectory_array_rule) > 5 and self.c_speed > 1:
@@ -158,7 +158,6 @@ class Werling(object):
                                         get_speed(dynamic_map.ego_state))
             
             return True
-
         except:
             rospy.logdebug("Planning (continuous): ------> Werling Initialize fail ")
             return False
@@ -288,26 +287,28 @@ class Werling(object):
         c_d_d = start_state.c_d_d
         c_d_dd = start_state.c_d_dd
 
-        # generate path to each offset goal
+        # generate path to each offset goal   为什么右向道路要特殊考虑？？
         if ONLY_SAMPLE_TO_RIGHT:
             left_sample_bound = D_ROAD_W
         else:
-            left_sample_bound = MAX_ROAD_WIDTH 
-        for di in np.arange(-MAX_ROAD_WIDTH, left_sample_bound, D_ROAD_W):
-
+            left_sample_bound = MAX_ROAD_WIDTH
+        # 对目标位置生成横向位置
+        for di in np.arange(-MAX_ROAD_WIDTH, left_sample_bound, D_ROAD_W): # np.arange(-2.4, 2.4, 0.8)，横向距离
+        
             # Lateral motion planning
-            for Ti in np.arange(MINT, MAXT, DT):
+            for Ti in np.arange(MINT, MAXT, DT): # np.arange(8, 8.6, 0.6)
                 fp = Frenet_path()
 
-                lat_qp = quintic_polynomial(c_d, c_d_d, c_d_dd, di, 0.0, 0.0, Ti) 
+                lat_qp = quintic_polynomial(c_d, c_d_d, c_d_dd, di, 0.0, 0.0, Ti) # 输入两个方向的位置、速度、加速度、间隔时间，生成轨迹
 
-                fp.t = np.arange(0.0, Ti, DT).tolist() # [t for t in np.arange(0.0, Ti, DT)]
+                fp.t = np.arange(0.0, Ti, DT).tolist() # [t for t in np.arange(0.0, Ti, DT)] 0到8或者8.6.间隔为0.6的时间序列
+                #获取横向控制的0-3阶在fp.t的导数
                 fp.d = [lat_qp.calc_point(t) for t in fp.t]                        
                 fp.d_d = [lat_qp.calc_first_derivative(t) for t in fp.t]
                 fp.d_dd = [lat_qp.calc_second_derivative(t) for t in fp.t]
                 fp.d_ddd = [lat_qp.calc_third_derivative(t) for t in fp.t]
 
-                # Loongitudinal motion planning (Velocity keeping)
+                # Loongitudinal motion planning (Velocity keeping) 纵向速度规划
                 for tv in np.arange(TARGET_SPEED - D_T_S * N_S_SAMPLE, TARGET_SPEED + D_T_S * N_S_SAMPLE, D_T_S):
                     tfp = copy.deepcopy(fp)
                     lon_qp = quartic_polynomial(s0, c_speed, 0.0, tv, 0.0, Ti)
