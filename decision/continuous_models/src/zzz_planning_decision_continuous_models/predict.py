@@ -88,7 +88,7 @@ class predict():
                 start_predict = 2
                 for t in range(start_predict, len_predict_t, predict_step):
                     d = abs(obsp.x[t] - fp_front.x[t]) + abs(obsp.y[t] - fp_front.y[t])
-                    if d <= self.check_radius: 
+                    if d <= self.check_radius: # 计算 碰撞检测
                         t1 = rospy.get_rostime().to_sec()
                         time_consume =t1-t0
                         rospy.logdebug("check_collision failed in %d rounds : check time consume %.6f",t,time_consume)
